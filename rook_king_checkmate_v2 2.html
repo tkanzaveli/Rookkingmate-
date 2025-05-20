@@ -1,0 +1,183 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Rook & King Checkmate Trainer</title>
+  <style>
+    body { font-family: 'Arial', sans-serif; background-color: #f4f4f4; text-align: center; }
+    h1 { color: #333; }
+    #board { display: grid; grid-template-columns: repeat(8, 60px); width: 480px; margin: 20px auto; border: 2px solid #000; }
+    .cell { width: 60px; height: 60px; display: flex; align-items: center; justify-content: center; font-size: 36px; }
+    .white { background-color: #eee; }
+    .black { background-color: #769656; color: #fff; }
+    #info, #leaderboard { margin-top: 20px; }
+    button { padding: 10px 20px; font-size: 16px; }
+  </style>
+</head>
+<body>
+  <h1>Rook & King Checkmate Trainer</h1>
+  <div id="board"></div>
+  <div id="info">
+    <p id="message">Can you checkmate the black king?</p>
+    <p>Moves: <span id="moves">0</span> | Time: <span id="timer">0</span> sec</p>
+    <button onclick="resetGame()">Restart</button>
+  </div>
+  <div id="leaderboard">
+    <h3>Best Score: <span id="bestmoves">--</span> moves in <span id="besttime">--</span> sec</h3>
+  </div>
+
+  <script>
+    const boardEl = document.getElementById('board');
+    const messageEl = document.getElementById('message');
+    const movesEl = document.getElementById('moves');
+    const timerEl = document.getElementById('timer');
+    const bestMovesEl = document.getElementById('bestmoves');
+    const bestTimeEl = document.getElementById('besttime');
+
+    let whiteKing = { x: 7, y: 7 };
+    let whiteRook = { x: 0, y: 0 };
+    let blackKing = { x: 4, y: 4 };
+    let selected = null;
+    let moves = 0;
+    let seconds = 0;
+    let bestMoves = null;
+    let bestTime = null;
+    let timer;
+
+    function createBoard() {
+      boardEl.innerHTML = '';
+      for (let y = 0; y < 8; y++) {
+        for (let x = 0; x < 8; x++) {
+          const cell = document.createElement('div');
+          cell.className = 'cell ' + ((x + y) % 2 === 0 ? 'white' : 'black');
+          cell.dataset.x = x;
+          cell.dataset.y = y;
+          cell.onclick = () => handleClick(x, y);
+          boardEl.appendChild(cell);
+        }
+      }
+      drawPieces();
+    }
+
+    function drawPieces() {
+      document.querySelectorAll('.cell').forEach(cell => cell.textContent = '');
+      placePiece(whiteKing, '♔');
+      placePiece(whiteRook, '♖');
+      placePiece(blackKing, '♚');
+    }
+
+    function placePiece(pos, symbol) {
+      const cell = [...document.querySelectorAll('.cell')]
+        .find(c => c.dataset.x == pos.x && c.dataset.y == pos.y);
+      if (cell) cell.textContent = symbol;
+    }
+
+    function handleClick(x, y) {
+      if (!selected) {
+        if (x === whiteKing.x && y === whiteKing.y) selected = 'king';
+        else if (x === whiteRook.x && y === whiteRook.y) selected = 'rook';
+      } else {
+        movePiece(selected, x, y);
+        selected = null;
+      }
+    }
+
+    function movePiece(type, x, y) {
+      if (type === 'king' && Math.abs(whiteKing.x - x) <= 1 && Math.abs(whiteKing.y - y) <= 1) {
+        whiteKing = { x, y };
+      } else if (type === 'rook' && (whiteRook.x === x || whiteRook.y === y)) {
+        whiteRook = { x, y };
+      } else {
+        messageEl.textContent = 'Invalid move!';
+        return;
+      }
+      moves++;
+      movesEl.textContent = moves;
+      drawPieces();
+      if (!checkWin()) {
+        setTimeout(blackMove, 500);
+      }
+    }
+
+    function blackMove() {
+      const directions = [
+        { dx: 1, dy: 0 }, { dx: -1, dy: 0 },
+        { dx: 0, dy: 1 }, { dx: 0, dy: -1 },
+        { dx: 1, dy: 1 }, { dx: -1, dy: -1 },
+        { dx: 1, dy: -1 }, { dx: -1, dy: 1 }
+      ];
+      for (const { dx, dy } of directions) {
+        const nx = blackKing.x + dx;
+        const ny = blackKing.y + dy;
+        if (isInside(nx, ny) && !isAttacked(nx, ny)) {
+          blackKing = { x: nx, y: ny };
+          drawPieces();
+          return;
+        }
+      }
+    }
+
+    function isInside(x, y) {
+      return x >= 0 && x < 8 && y >= 0 && y < 8;
+    }
+
+    function isAttacked(x, y) {
+      if (whiteRook.x === x || whiteRook.y === y) return true;
+      if (Math.abs(whiteKing.x - x) <= 1 && Math.abs(whiteKing.y - y) <= 1) return true;
+      return false;
+    }
+
+    function checkWin() {
+      const attacked = isAttacked(blackKing.x, blackKing.y);
+      const trapped = ![
+        { dx: 1, dy: 0 }, { dx: -1, dy: 0 },
+        { dx: 0, dy: 1 }, { dx: 0, dy: -1 },
+        { dx: 1, dy: 1 }, { dx: -1, dy: -1 },
+        { dx: 1, dy: -1 }, { dx: -1, dy: 1 }
+      ].some(({ dx, dy }) => {
+        const nx = blackKing.x + dx;
+        const ny = blackKing.y + dy;
+        return isInside(nx, ny) && !isAttacked(nx, ny);
+      });
+
+      if (attacked && trapped) {
+        messageEl.textContent = 'Checkmate! Great job!';
+        clearInterval(timer);
+        updateScore();
+        return true;
+      }
+      return false;
+    }
+
+    function updateScore() {
+      if (!bestMoves || moves < bestMoves || (moves === bestMoves && seconds < bestTime)) {
+        bestMoves = moves;
+        bestTime = seconds;
+        bestMovesEl.textContent = bestMoves;
+        bestTimeEl.textContent = bestTime;
+      }
+    }
+
+    function resetGame() {
+      whiteKing = { x: 7, y: 7 };
+      whiteRook = { x: 0, y: 0 };
+      blackKing = { x: 4, y: 4 };
+      moves = 0;
+      seconds = 0;
+      selected = null;
+      movesEl.textContent = moves;
+      timerEl.textContent = seconds;
+      messageEl.textContent = 'Can you checkmate the black king?';
+      clearInterval(timer);
+      timer = setInterval(() => {
+        seconds++;
+        timerEl.textContent = seconds;
+      }, 1000);
+      createBoard();
+    }
+
+    resetGame();
+  </script>
+</body>
+</html>
