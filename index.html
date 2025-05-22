@@ -1,183 +1,518 @@
-
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Rook & King Checkmate Trainer</title>
-  <style>
-    body { font-family: 'Arial', sans-serif; background-color: #f4f4f4; text-align: center; }
-    h1 { color: #333; }
-    #board { display: grid; grid-template-columns: repeat(8, 60px); width: 480px; margin: 20px auto; border: 2px solid #000; }
-    .cell { width: 60px; height: 60px; display: flex; align-items: center; justify-content: center; font-size: 36px; }
-    .white { background-color: #eee; }
-    .black { background-color: #769656; color: #fff; }
-    #info, #leaderboard { margin-top: 20px; }
-    button { padding: 10px 20px; font-size: 16px; }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chess Queen's Club - Checkmate Training</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #2c3e50;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .container {
+            background: white;
+            border-radius: 10px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            max-width: 600px;
+            width: 100%;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .logo {
+            font-size: 24px;
+            font-weight: bold;
+            color: #c41e3a;
+            margin-bottom: 10px;
+        }
+
+        h1 {
+            color: #333;
+            font-size: 20px;
+            margin: 10px 0;
+        }
+
+        .stats {
+            display: flex;
+            justify-content: space-around;
+            margin-bottom: 20px;
+        }
+
+        .stat {
+            background: #f0f0f0;
+            padding: 10px 20px;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+
+        #board {
+            display: grid;
+            grid-template-columns: repeat(8, 50px);
+            grid-template-rows: repeat(8, 50px);
+            gap: 0;
+            margin: 0 auto;
+            border: 2px solid #333;
+        }
+
+        .square {
+            width: 50px;
+            height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 36px;
+            cursor: pointer;
+        }
+
+        .white {
+            background: #f0d9b5;
+        }
+
+        .black {
+            background: #b58863;
+        }
+
+        .selected {
+            background: #ffff00 !important;
+        }
+
+        .valid-move {
+            background: #90ee90 !important;
+        }
+
+        .controls {
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        button {
+            background: #c41e3a;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            margin: 5px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+        }
+
+        button:hover {
+            background: #a01729;
+        }
+
+        #message {
+            text-align: center;
+            margin: 20px 0;
+            font-size: 18px;
+            color: #333;
+            min-height: 30px;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 40px;
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        .trophy {
+            font-size: 60px;
+            margin: 20px 0;
+        }
+    </style>
 </head>
 <body>
-  <h1>Rook & King Checkmate Trainer</h1>
-  <div id="board"></div>
-  <div id="info">
-    <p id="message">Can you checkmate the black king?</p>
-    <p>Moves: <span id="moves">0</span> | Time: <span id="timer">0</span> sec</p>
-    <button onclick="resetGame()">Restart</button>
-  </div>
-  <div id="leaderboard">
-    <h3>Best Score: <span id="bestmoves">--</span> moves in <span id="besttime">--</span> sec</h3>
-  </div>
+    <div class="container">
+        <div class="header">
+            <div class="logo">♛ Chess Queen's Club</div>
+            <h1>King & Rook Checkmate Training</h1>
+        </div>
 
-  <script>
-    const boardEl = document.getElementById('board');
-    const messageEl = document.getElementById('message');
-    const movesEl = document.getElementById('moves');
-    const timerEl = document.getElementById('timer');
-    const bestMovesEl = document.getElementById('bestmoves');
-    const bestTimeEl = document.getElementById('besttime');
+        <div class="stats">
+            <div class="stat">Moves: <span id="moves">0</span></div>
+            <div class="stat">Time: <span id="time">0:00</span></div>
+            <div class="stat">Score: <span id="score">1000</span></div>
+        </div>
 
-    let whiteKing = { x: 7, y: 7 };
-    let whiteRook = { x: 0, y: 0 };
-    let blackKing = { x: 4, y: 4 };
-    let selected = null;
-    let moves = 0;
-    let seconds = 0;
-    let bestMoves = null;
-    let bestTime = null;
-    let timer;
+        <div id="message">Click your King or Rook to start!</div>
 
-    function createBoard() {
-      boardEl.innerHTML = '';
-      for (let y = 0; y < 8; y++) {
-        for (let x = 0; x < 8; x++) {
-          const cell = document.createElement('div');
-          cell.className = 'cell ' + ((x + y) % 2 === 0 ? 'white' : 'black');
-          cell.dataset.x = x;
-          cell.dataset.y = y;
-          cell.onclick = () => handleClick(x, y);
-          boardEl.appendChild(cell);
+        <div id="board"></div>
+
+        <div class="controls">
+            <button onclick="resetGame()">New Game</button>
+            <button onclick="getHint()">Hint</button>
+        </div>
+    </div>
+
+    <div id="winModal" class="modal">
+        <div class="modal-content">
+            <div class="trophy">🏆</div>
+            <h2>Checkmate! Great Job!</h2>
+            <p id="finalStats"></p>
+            <button onclick="resetGame()">Play Again</button>
+        </div>
+    </div>
+
+    <script>
+        // Game state
+        let board = [];
+        let selected = null;
+        let moves = 0;
+        let score = 1000;
+        let startTime = Date.now();
+        let timerInterval;
+        let gameOver = false;
+
+        // Piece positions
+        let whiteKing = null;
+        let whiteRook = null;
+        let blackKing = null;
+
+        // Initialize board
+        function initBoard() {
+            board = Array(8).fill(null).map(() => Array(8).fill(null));
+            
+            // Place pieces randomly
+            let positions = [];
+            while (positions.length < 3) {
+                let pos = {
+                    row: Math.floor(Math.random() * 8),
+                    col: Math.floor(Math.random() * 8)
+                };
+                
+                // Check if position is already taken
+                let taken = positions.some(p => p.row === pos.row && p.col === pos.col);
+                
+                if (!taken) {
+                    // For black king, ensure it's not next to white king position
+                    if (positions.length === 2) {
+                        let wk = positions[0];
+                        if (Math.abs(pos.row - wk.row) <= 1 && Math.abs(pos.col - wk.col) <= 1) {
+                            continue;
+                        }
+                    }
+                    positions.push(pos);
+                }
+            }
+            
+            whiteKing = positions[0];
+            whiteRook = positions[1];
+            blackKing = positions[2];
+            
+            board[whiteKing.row][whiteKing.col] = '♔';
+            board[whiteRook.row][whiteRook.col] = '♖';
+            board[blackKing.row][blackKing.col] = '♚';
         }
-      }
-      drawPieces();
-    }
 
-    function drawPieces() {
-      document.querySelectorAll('.cell').forEach(cell => cell.textContent = '');
-      placePiece(whiteKing, '♔');
-      placePiece(whiteRook, '♖');
-      placePiece(blackKing, '♚');
-    }
-
-    function placePiece(pos, symbol) {
-      const cell = [...document.querySelectorAll('.cell')]
-        .find(c => c.dataset.x == pos.x && c.dataset.y == pos.y);
-      if (cell) cell.textContent = symbol;
-    }
-
-    function handleClick(x, y) {
-      if (!selected) {
-        if (x === whiteKing.x && y === whiteKing.y) selected = 'king';
-        else if (x === whiteRook.x && y === whiteRook.y) selected = 'rook';
-      } else {
-        movePiece(selected, x, y);
-        selected = null;
-      }
-    }
-
-    function movePiece(type, x, y) {
-      if (type === 'king' && Math.abs(whiteKing.x - x) <= 1 && Math.abs(whiteKing.y - y) <= 1) {
-        whiteKing = { x, y };
-      } else if (type === 'rook' && (whiteRook.x === x || whiteRook.y === y)) {
-        whiteRook = { x, y };
-      } else {
-        messageEl.textContent = 'Invalid move!';
-        return;
-      }
-      moves++;
-      movesEl.textContent = moves;
-      drawPieces();
-      if (!checkWin()) {
-        setTimeout(blackMove, 500);
-      }
-    }
-
-    function blackMove() {
-      const directions = [
-        { dx: 1, dy: 0 }, { dx: -1, dy: 0 },
-        { dx: 0, dy: 1 }, { dx: 0, dy: -1 },
-        { dx: 1, dy: 1 }, { dx: -1, dy: -1 },
-        { dx: 1, dy: -1 }, { dx: -1, dy: 1 }
-      ];
-      for (const { dx, dy } of directions) {
-        const nx = blackKing.x + dx;
-        const ny = blackKing.y + dy;
-        if (isInside(nx, ny) && !isAttacked(nx, ny)) {
-          blackKing = { x: nx, y: ny };
-          drawPieces();
-          return;
+        // Render board
+        function renderBoard() {
+            const boardEl = document.getElementById('board');
+            boardEl.innerHTML = '';
+            
+            for (let row = 0; row < 8; row++) {
+                for (let col = 0; col < 8; col++) {
+                    const square = document.createElement('div');
+                    square.className = 'square ' + ((row + col) % 2 === 0 ? 'white' : 'black');
+                    square.dataset.row = row;
+                    square.dataset.col = col;
+                    
+                    if (board[row][col]) {
+                        square.textContent = board[row][col];
+                    }
+                    
+                    square.onclick = () => handleClick(row, col);
+                    boardEl.appendChild(square);
+                }
+            }
         }
-      }
-    }
 
-    function isInside(x, y) {
-      return x >= 0 && x < 8 && y >= 0 && y < 8;
-    }
+        // Handle square click
+        function handleClick(row, col) {
+            if (gameOver) return;
+            
+            const piece = board[row][col];
+            
+            if (selected) {
+                // Try to move
+                if (isValidMove(selected, {row, col})) {
+                    makeMove(selected, {row, col});
+                }
+                clearSelection();
+            } else if (piece === '♔' || piece === '♖') {
+                // Select piece
+                selected = {row, col, piece};
+                highlightSelection();
+            }
+        }
 
-    function isAttacked(x, y) {
-      if (whiteRook.x === x || whiteRook.y === y) return true;
-      if (Math.abs(whiteKing.x - x) <= 1 && Math.abs(whiteKing.y - y) <= 1) return true;
-      return false;
-    }
+        // Check if move is valid
+        function isValidMove(from, to) {
+            if (board[to.row][to.col] === '♔' || board[to.row][to.col] === '♖') {
+                return false;
+            }
+            
+            if (from.piece === '♔') {
+                // King moves one square
+                const rowDiff = Math.abs(from.row - to.row);
+                const colDiff = Math.abs(from.col - to.col);
+                if (rowDiff > 1 || colDiff > 1) return false;
+                
+                // Can't move next to black king
+                if (Math.abs(to.row - blackKing.row) <= 1 && Math.abs(to.col - blackKing.col) <= 1) {
+                    return false;
+                }
+                return true;
+            } else if (from.piece === '♖') {
+                // Rook moves in straight lines
+                if (from.row !== to.row && from.col !== to.col) return false;
+                
+                // Check path is clear
+                if (from.row === to.row) {
+                    let start = Math.min(from.col, to.col);
+                    let end = Math.max(from.col, to.col);
+                    for (let i = start + 1; i < end; i++) {
+                        if (board[from.row][i]) return false;
+                    }
+                } else {
+                    let start = Math.min(from.row, to.row);
+                    let end = Math.max(from.row, to.row);
+                    for (let i = start + 1; i < end; i++) {
+                        if (board[i][from.col]) return false;
+                    }
+                }
+                return true;
+            }
+            return false;
+        }
 
-    function checkWin() {
-      const attacked = isAttacked(blackKing.x, blackKing.y);
-      const trapped = ![
-        { dx: 1, dy: 0 }, { dx: -1, dy: 0 },
-        { dx: 0, dy: 1 }, { dx: 0, dy: -1 },
-        { dx: 1, dy: 1 }, { dx: -1, dy: -1 },
-        { dx: 1, dy: -1 }, { dx: -1, dy: 1 }
-      ].some(({ dx, dy }) => {
-        const nx = blackKing.x + dx;
-        const ny = blackKing.y + dy;
-        return isInside(nx, ny) && !isAttacked(nx, ny);
-      });
+        // Make move
+        function makeMove(from, to) {
+            board[to.row][to.col] = board[from.row][from.col];
+            board[from.row][from.col] = null;
+            
+            if (from.piece === '♔') {
+                whiteKing = {row: to.row, col: to.col};
+            } else if (from.piece === '♖') {
+                whiteRook = {row: to.row, col: to.col};
+            }
+            
+            moves++;
+            score = Math.max(100, score - 10);
+            updateStats();
+            renderBoard();
+            
+            setTimeout(() => {
+                moveBlackKing();
+                checkWin();
+            }, 300);
+        }
 
-      if (attacked && trapped) {
-        messageEl.textContent = 'Checkmate! Great job!';
-        clearInterval(timer);
-        updateScore();
-        return true;
-      }
-      return false;
-    }
+        // Move black king
+        function moveBlackKing() {
+            if (gameOver) return;
+            
+            let validMoves = [];
+            
+            for (let dr = -1; dr <= 1; dr++) {
+                for (let dc = -1; dc <= 1; dc++) {
+                    if (dr === 0 && dc === 0) continue;
+                    
+                    let newRow = blackKing.row + dr;
+                    let newCol = blackKing.col + dc;
+                    
+                    if (newRow >= 0 && newRow < 8 && newCol >= 0 && newCol < 8) {
+                        if (!board[newRow][newCol] && isSafeForBlackKing(newRow, newCol)) {
+                            validMoves.push({row: newRow, col: newCol});
+                        }
+                    }
+                }
+            }
+            
+            if (validMoves.length > 0) {
+                let move = validMoves[Math.floor(Math.random() * validMoves.length)];
+                board[blackKing.row][blackKing.col] = null;
+                blackKing = move;
+                board[blackKing.row][blackKing.col] = '♚';
+                renderBoard();
+            }
+        }
 
-    function updateScore() {
-      if (!bestMoves || moves < bestMoves || (moves === bestMoves && seconds < bestTime)) {
-        bestMoves = moves;
-        bestTime = seconds;
-        bestMovesEl.textContent = bestMoves;
-        bestTimeEl.textContent = bestTime;
-      }
-    }
+        // Check if square is safe for black king
+        function isSafeForBlackKing(row, col) {
+            // Not next to white king
+            if (Math.abs(row - whiteKing.row) <= 1 && Math.abs(col - whiteKing.col) <= 1) {
+                return false;
+            }
+            
+            // Not attacked by rook
+            if (row === whiteRook.row || col === whiteRook.col) {
+                // Check if path is clear
+                if (row === whiteRook.row) {
+                    let start = Math.min(col, whiteRook.col);
+                    let end = Math.max(col, whiteRook.col);
+                    for (let i = start + 1; i < end; i++) {
+                        if (board[row][i]) return true;
+                    }
+                    return false;
+                } else {
+                    let start = Math.min(row, whiteRook.row);
+                    let end = Math.max(row, whiteRook.row);
+                    for (let i = start + 1; i < end; i++) {
+                        if (board[i][col]) return true;
+                    }
+                    return false;
+                }
+            }
+            
+            return true;
+        }
 
-    function resetGame() {
-      whiteKing = { x: 7, y: 7 };
-      whiteRook = { x: 0, y: 0 };
-      blackKing = { x: 4, y: 4 };
-      moves = 0;
-      seconds = 0;
-      selected = null;
-      movesEl.textContent = moves;
-      timerEl.textContent = seconds;
-      messageEl.textContent = 'Can you checkmate the black king?';
-      clearInterval(timer);
-      timer = setInterval(() => {
-        seconds++;
-        timerEl.textContent = seconds;
-      }, 1000);
-      createBoard();
-    }
+        // Check for checkmate
+        function checkWin() {
+            let hasValidMove = false;
+            
+            for (let dr = -1; dr <= 1; dr++) {
+                for (let dc = -1; dc <= 1; dc++) {
+                    if (dr === 0 && dc === 0) continue;
+                    
+                    let newRow = blackKing.row + dr;
+                    let newCol = blackKing.col + dc;
+                    
+                    if (newRow >= 0 && newRow < 8 && newCol >= 0 && newCol < 8) {
+                        if (!board[newRow][newCol] && isSafeForBlackKing(newRow, newCol)) {
+                            hasValidMove = true;
+                            break;
+                        }
+                    }
+                }
+                if (hasValidMove) break;
+            }
+            
+            if (!hasValidMove && !isSafeForBlackKing(blackKing.row, blackKing.col)) {
+                gameOver = true;
+                showWin();
+            }
+        }
 
-    resetGame();
-  </script>
+        // Highlight selection
+        function highlightSelection() {
+            clearHighlights();
+            
+            const squares = document.querySelectorAll('.square');
+            squares.forEach(sq => {
+                let row = parseInt(sq.dataset.row);
+                let col = parseInt(sq.dataset.col);
+                
+                if (row === selected.row && col === selected.col) {
+                    sq.classList.add('selected');
+                } else if (isValidMove(selected, {row, col})) {
+                    sq.classList.add('valid-move');
+                }
+            });
+        }
+
+        // Clear selection
+        function clearSelection() {
+            selected = null;
+            clearHighlights();
+        }
+
+        // Clear highlights
+        function clearHighlights() {
+            document.querySelectorAll('.square').forEach(sq => {
+                sq.classList.remove('selected', 'valid-move');
+            });
+        }
+
+        // Update stats
+        function updateStats() {
+            document.getElementById('moves').textContent = moves;
+            document.getElementById('score').textContent = score;
+        }
+
+        // Update timer
+        function updateTimer() {
+            let elapsed = Math.floor((Date.now() - startTime) / 1000);
+            let minutes = Math.floor(elapsed / 60);
+            let seconds = elapsed % 60;
+            document.getElementById('time').textContent = 
+                minutes + ':' + (seconds < 10 ? '0' : '') + seconds;
+        }
+
+        // Show win modal
+        function showWin() {
+            clearInterval(timerInterval);
+            let time = Math.floor((Date.now() - startTime) / 1000);
+            let minutes = Math.floor(time / 60);
+            let seconds = time % 60;
+            
+            document.getElementById('finalStats').innerHTML = 
+                `Moves: ${moves}<br>Time: ${minutes}:${seconds < 10 ? '0' : ''}${seconds}<br>Score: ${score}`;
+            
+            document.getElementById('winModal').style.display = 'flex';
+            document.getElementById('message').textContent = 'Checkmate! You win!';
+        }
+
+        // Get hint
+        function getHint() {
+            let hints = [
+                "Push the black king to the edge!",
+                "Use your king to control escape squares.",
+                "The rook can cut off the king's escape.",
+                "Work together - king and rook are a team!",
+                "Try to force the king into a corner."
+            ];
+            
+            document.getElementById('message').textContent = hints[Math.floor(Math.random() * hints.length)];
+            score = Math.max(100, score - 50);
+            updateStats();
+        }
+
+        // Reset game
+        function resetGame() {
+            gameOver = false;
+            moves = 0;
+            score = 1000;
+            startTime = Date.now();
+            selected = null;
+            
+            clearInterval(timerInterval);
+            timerInterval = setInterval(updateTimer, 1000);
+            
+            document.getElementById('winModal').style.display = 'none';
+            document.getElementById('message').textContent = 'Click your King or Rook to start!';
+            
+            initBoard();
+            renderBoard();
+            updateStats();
+        }
+
+        // Start game
+        resetGame();
+    </script>
 </body>
 </html>
