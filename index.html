@@ -6,7 +6,7 @@
     <title>Chess Queen's Club - Checkmate Training</title>
     <style>
         body {
-            font-family: Arial, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
             background: #2c3e50;
             margin: 0;
             padding: 20px;
@@ -31,15 +31,19 @@
         }
 
         .logo {
-            font-size: 24px;
+            font-size: 28px;
             font-weight: bold;
             color: #c41e3a;
             margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
         }
 
         h1 {
             color: #333;
-            font-size: 20px;
+            font-size: 24px;
             margin: 10px 0;
         }
 
@@ -47,6 +51,7 @@
             display: flex;
             justify-content: space-around;
             margin-bottom: 20px;
+            gap: 10px;
         }
 
         .stat {
@@ -54,25 +59,28 @@
             padding: 10px 20px;
             border-radius: 5px;
             font-weight: bold;
+            flex: 1;
+            text-align: center;
         }
 
         #board {
             display: grid;
-            grid-template-columns: repeat(8, 50px);
-            grid-template-rows: repeat(8, 50px);
+            grid-template-columns: repeat(8, 60px);
+            grid-template-rows: repeat(8, 60px);
             gap: 0;
-            margin: 0 auto;
-            border: 2px solid #333;
+            margin: 0 auto 20px;
+            border: 3px solid #333;
         }
 
         .square {
-            width: 50px;
-            height: 50px;
+            width: 60px;
+            height: 60px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 36px;
+            font-size: 40px;
             cursor: pointer;
+            position: relative;
         }
 
         .white {
@@ -84,28 +92,52 @@
         }
 
         .selected {
-            background: #ffff00 !important;
+            background: #ffeb3b !important;
+            box-shadow: inset 0 0 0 3px #ffc107;
         }
 
         .valid-move {
-            background: #90ee90 !important;
+            background: #8bc34a !important;
+        }
+
+        .valid-move::after {
+            content: '';
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            background: rgba(76, 175, 80, 0.5);
+            border-radius: 50%;
+        }
+
+        .in-check {
+            background: #ff5252 !important;
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0% { box-shadow: inset 0 0 0 0 rgba(255, 0, 0, 0.7); }
+            50% { box-shadow: inset 0 0 0 5px rgba(255, 0, 0, 0.7); }
+            100% { box-shadow: inset 0 0 0 0 rgba(255, 0, 0, 0.7); }
         }
 
         .controls {
             text-align: center;
             margin-top: 20px;
+            display: flex;
+            justify-content: center;
+            gap: 10px;
         }
 
         button {
             background: #c41e3a;
             color: white;
             border: none;
-            padding: 10px 20px;
-            margin: 5px;
+            padding: 12px 24px;
             border-radius: 5px;
             cursor: pointer;
             font-size: 16px;
             font-weight: bold;
+            transition: background 0.3s;
         }
 
         button:hover {
@@ -120,6 +152,16 @@
             min-height: 30px;
         }
 
+        .error {
+            color: #f44336;
+            font-weight: bold;
+        }
+
+        .success {
+            color: #4caf50;
+            font-weight: bold;
+        }
+
         .modal {
             display: none;
             position: fixed;
@@ -130,6 +172,7 @@
             background: rgba(0,0,0,0.8);
             justify-content: center;
             align-items: center;
+            z-index: 1000;
         }
 
         .modal-content {
@@ -137,18 +180,30 @@
             padding: 40px;
             border-radius: 10px;
             text-align: center;
+            max-width: 400px;
         }
 
         .trophy {
             font-size: 60px;
             margin: 20px 0;
         }
+
+        .debug {
+            font-size: 11px;
+            color: #666;
+            margin-top: 10px;
+            text-align: center;
+            font-family: monospace;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <div class="logo">♛ Chess Queen's Club</div>
+            <div class="logo">
+                <span>♛</span>
+                <span>Chess Queen's Club</span>
+            </div>
             <h1>King & Rook Checkmate Training</h1>
         </div>
 
@@ -166,14 +221,16 @@
             <button onclick="resetGame()">New Game</button>
             <button onclick="getHint()">Hint</button>
         </div>
+
+        <div id="debug" class="debug"></div>
     </div>
 
     <div id="winModal" class="modal">
         <div class="modal-content">
             <div class="trophy">🏆</div>
-            <h2>Checkmate! Great Job!</h2>
+            <h2>Checkmate! Excellent Work!</h2>
             <p id="finalStats"></p>
-            <button onclick="resetGame()">Play Again</button>
+            <button onclick="closeWinModal()">Play Again</button>
         </div>
     </div>
 
@@ -196,33 +253,45 @@
         function initBoard() {
             board = Array(8).fill(null).map(() => Array(8).fill(null));
             
-            // Place pieces randomly
-            let positions = [];
-            while (positions.length < 3) {
-                let pos = {
+            // Place pieces with valid starting positions
+            // Place white king
+            whiteKing = {
+                row: Math.floor(Math.random() * 8),
+                col: Math.floor(Math.random() * 8)
+            };
+            
+            // Place white rook (not on king)
+            do {
+                whiteRook = {
+                    row: Math.floor(Math.random() * 8),
+                    col: Math.floor(Math.random() * 8)
+                };
+            } while (whiteRook.row === whiteKing.row && whiteRook.col === whiteKing.col);
+            
+            // Place black king (not adjacent to white king, not on other pieces)
+            let blackKingPlaced = false;
+            while (!blackKingPlaced) {
+                blackKing = {
                     row: Math.floor(Math.random() * 8),
                     col: Math.floor(Math.random() * 8)
                 };
                 
-                // Check if position is already taken
-                let taken = positions.some(p => p.row === pos.row && p.col === pos.col);
-                
-                if (!taken) {
-                    // For black king, ensure it's not next to white king position
-                    if (positions.length === 2) {
-                        let wk = positions[0];
-                        if (Math.abs(pos.row - wk.row) <= 1 && Math.abs(pos.col - wk.col) <= 1) {
-                            continue;
-                        }
-                    }
-                    positions.push(pos);
+                // Check not on another piece
+                if ((blackKing.row === whiteKing.row && blackKing.col === whiteKing.col) ||
+                    (blackKing.row === whiteRook.row && blackKing.col === whiteRook.col)) {
+                    continue;
                 }
+                
+                // Check not adjacent to white king
+                if (Math.abs(blackKing.row - whiteKing.row) <= 1 && 
+                    Math.abs(blackKing.col - whiteKing.col) <= 1) {
+                    continue;
+                }
+                
+                blackKingPlaced = true;
             }
             
-            whiteKing = positions[0];
-            whiteRook = positions[1];
-            blackKing = positions[2];
-            
+            // Place pieces on board
             board[whiteKing.row][whiteKing.col] = '♔';
             board[whiteRook.row][whiteRook.col] = '♖';
             board[blackKing.row][blackKing.col] = '♚';
@@ -233,10 +302,19 @@
             const boardEl = document.getElementById('board');
             boardEl.innerHTML = '';
             
+            // Check if black king is in check
+            let blackKingInCheck = isSquareAttackedByWhite(blackKing.row, blackKing.col);
+            
             for (let row = 0; row < 8; row++) {
                 for (let col = 0; col < 8; col++) {
                     const square = document.createElement('div');
                     square.className = 'square ' + ((row + col) % 2 === 0 ? 'white' : 'black');
+                    
+                    // Highlight if black king is in check
+                    if (blackKingInCheck && row === blackKing.row && col === blackKing.col) {
+                        square.classList.add('in-check');
+                    }
+                    
                     square.dataset.row = row;
                     square.dataset.col = col;
                     
@@ -248,6 +326,56 @@
                     boardEl.appendChild(square);
                 }
             }
+            
+            // Update debug info
+            updateDebug();
+        }
+
+        // Check if a square is attacked by white pieces
+        function isSquareAttackedByWhite(row, col) {
+            // Check if attacked by white king
+            if (Math.abs(row - whiteKing.row) <= 1 && 
+                Math.abs(col - whiteKing.col) <= 1) {
+                return true;
+            }
+            
+            // Check if attacked by white rook
+            if (row === whiteRook.row || col === whiteRook.col) {
+                // Check if on same rank
+                if (row === whiteRook.row) {
+                    let start = Math.min(col, whiteRook.col);
+                    let end = Math.max(col, whiteRook.col);
+                    let blocked = false;
+                    
+                    // Check for blocking pieces between rook and target
+                    for (let c = start + 1; c < end; c++) {
+                        if (board[row][c]) {
+                            blocked = true;
+                            break;
+                        }
+                    }
+                    
+                    if (!blocked) return true;
+                }
+                // Check if on same file
+                else if (col === whiteRook.col) {
+                    let start = Math.min(row, whiteRook.row);
+                    let end = Math.max(row, whiteRook.row);
+                    let blocked = false;
+                    
+                    // Check for blocking pieces between rook and target
+                    for (let r = start + 1; r < end; r++) {
+                        if (board[r][col]) {
+                            blocked = true;
+                            break;
+                        }
+                    }
+                    
+                    if (!blocked) return true;
+                }
+            }
+            
+            return false;
         }
 
         // Handle square click
@@ -269,8 +397,9 @@
             }
         }
 
-        // Check if move is valid
+        // Check if move is valid for white pieces
         function isValidMove(from, to) {
+            // Can't capture own pieces
             if (board[to.row][to.col] === '♔' || board[to.row][to.col] === '♖') {
                 return false;
             }
@@ -282,8 +411,11 @@
                 if (rowDiff > 1 || colDiff > 1) return false;
                 
                 // Can't move next to black king
-                if (Math.abs(to.row - blackKing.row) <= 1 && Math.abs(to.col - blackKing.col) <= 1) {
-                    return false;
+                if (board[to.row][to.col] !== '♚') { // Unless capturing
+                    if (Math.abs(to.row - blackKing.row) <= 1 && 
+                        Math.abs(to.col - blackKing.col) <= 1) {
+                        return false;
+                    }
                 }
                 return true;
             } else if (from.piece === '♖') {
@@ -311,9 +443,19 @@
 
         // Make move
         function makeMove(from, to) {
+            // Check if capturing black king (shouldn't happen in normal play)
+            if (board[to.row][to.col] === '♚') {
+                gameOver = true;
+                showMessage("Black king captured! This shouldn't happen!", true);
+                setTimeout(() => resetGame(), 2000);
+                return;
+            }
+            
+            // Make the move
             board[to.row][to.col] = board[from.row][from.col];
             board[from.row][from.col] = null;
             
+            // Update piece positions
             if (from.piece === '♔') {
                 whiteKing = {row: to.row, col: to.col};
             } else if (from.piece === '♖') {
@@ -325,100 +467,86 @@
             updateStats();
             renderBoard();
             
+            // Show encouragement
+            if (moves % 5 === 0) {
+                showMessage("Good progress! Keep going!");
+            }
+            
+            // Black king moves after a delay
             setTimeout(() => {
-                moveBlackKing();
-                checkWin();
-            }, 300);
+                if (!gameOver) {
+                    moveBlackKing();
+                }
+            }, 500);
         }
 
         // Move black king
         function moveBlackKing() {
             if (gameOver) return;
             
-            let validMoves = [];
+            // Get all possible moves for black king
+            let possibleMoves = [];
             
             for (let dr = -1; dr <= 1; dr++) {
                 for (let dc = -1; dc <= 1; dc++) {
-                    if (dr === 0 && dc === 0) continue;
+                    if (dr === 0 && dc === 0) continue; // Skip current position
                     
                     let newRow = blackKing.row + dr;
                     let newCol = blackKing.col + dc;
                     
+                    // Check if move is within board
                     if (newRow >= 0 && newRow < 8 && newCol >= 0 && newCol < 8) {
-                        if (!board[newRow][newCol] && isSafeForBlackKing(newRow, newCol)) {
-                            validMoves.push({row: newRow, col: newCol});
+                        // Check if square is empty
+                        if (!board[newRow][newCol]) {
+                            // Check if square is safe (not attacked)
+                            if (!isSquareAttackedByWhite(newRow, newCol)) {
+                                possibleMoves.push({
+                                    row: newRow, 
+                                    col: newCol,
+                                    // Add preference score (prefer center squares)
+                                    score: Math.min(newRow, 7 - newRow) + Math.min(newCol, 7 - newCol)
+                                });
+                            }
                         }
                     }
                 }
             }
             
-            if (validMoves.length > 0) {
-                let move = validMoves[Math.floor(Math.random() * validMoves.length)];
-                board[blackKing.row][blackKing.col] = null;
-                blackKing = move;
-                board[blackKing.row][blackKing.col] = '♚';
-                renderBoard();
-            }
-        }
-
-        // Check if square is safe for black king
-        function isSafeForBlackKing(row, col) {
-            // Not next to white king
-            if (Math.abs(row - whiteKing.row) <= 1 && Math.abs(col - whiteKing.col) <= 1) {
-                return false;
-            }
-            
-            // Not attacked by rook
-            if (row === whiteRook.row || col === whiteRook.col) {
-                // Check if path is clear
-                if (row === whiteRook.row) {
-                    let start = Math.min(col, whiteRook.col);
-                    let end = Math.max(col, whiteRook.col);
-                    for (let i = start + 1; i < end; i++) {
-                        if (board[row][i]) return true;
-                    }
-                    return false;
+            // If no valid moves, check for checkmate or stalemate
+            if (possibleMoves.length === 0) {
+                let inCheck = isSquareAttackedByWhite(blackKing.row, blackKing.col);
+                if (inCheck) {
+                    // Checkmate!
+                    gameOver = true;
+                    showWin();
                 } else {
-                    let start = Math.min(row, whiteRook.row);
-                    let end = Math.max(row, whiteRook.row);
-                    for (let i = start + 1; i < end; i++) {
-                        if (board[i][col]) return true;
-                    }
-                    return false;
+                    // Stalemate
+                    gameOver = true;
+                    showMessage("Stalemate! The black king has no legal moves but is not in check.", true);
+                    setTimeout(() => resetGame(), 3000);
                 }
+                return;
             }
             
-            return true;
-        }
-
-        // Check for checkmate
-        function checkWin() {
-            let hasValidMove = false;
+            // Choose a move (prefer center squares when possible)
+            possibleMoves.sort((a, b) => b.score - a.score);
+            let move = possibleMoves[0];
             
-            for (let dr = -1; dr <= 1; dr++) {
-                for (let dc = -1; dc <= 1; dc++) {
-                    if (dr === 0 && dc === 0) continue;
-                    
-                    let newRow = blackKing.row + dr;
-                    let newCol = blackKing.col + dc;
-                    
-                    if (newRow >= 0 && newRow < 8 && newCol >= 0 && newCol < 8) {
-                        if (!board[newRow][newCol] && isSafeForBlackKing(newRow, newCol)) {
-                            hasValidMove = true;
-                            break;
-                        }
-                    }
-                }
-                if (hasValidMove) break;
-            }
+            // Make the move
+            board[blackKing.row][blackKing.col] = null;
+            blackKing = {row: move.row, col: move.col};
+            board[blackKing.row][blackKing.col] = '♚';
             
-            if (!hasValidMove && !isSafeForBlackKing(blackKing.row, blackKing.col)) {
-                gameOver = true;
-                showWin();
+            renderBoard();
+            
+            // Check if we're making progress
+            if (blackKing.row === 0 || blackKing.row === 7 || 
+                blackKing.col === 0 || blackKing.col === 7) {
+                showMessage("Good! The black king is on the edge. Now keep it there!");
             }
         }
 
-        // Highlight selection
+        // Highlight selection and valid moves
         function highlightSelection() {
             clearHighlights();
             
@@ -456,11 +584,30 @@
 
         // Update timer
         function updateTimer() {
+            if (gameOver) return;
+            
             let elapsed = Math.floor((Date.now() - startTime) / 1000);
             let minutes = Math.floor(elapsed / 60);
             let seconds = elapsed % 60;
             document.getElementById('time').textContent = 
                 minutes + ':' + (seconds < 10 ? '0' : '') + seconds;
+        }
+
+        // Show message
+        function showMessage(text, isError = false) {
+            const msgEl = document.getElementById('message');
+            msgEl.textContent = text;
+            msgEl.className = isError ? 'error' : '';
+        }
+
+        // Update debug info
+        function updateDebug() {
+            const inCheck = isSquareAttackedByWhite(blackKing.row, blackKing.col);
+            document.getElementById('debug').textContent = 
+                `WK: ${whiteKing.row},${whiteKing.col} | ` +
+                `WR: ${whiteRook.row},${whiteRook.col} | ` +
+                `BK: ${blackKing.row},${blackKing.col} | ` +
+                `Check: ${inCheck ? 'YES' : 'NO'}`;
         }
 
         // Show win modal
@@ -470,24 +617,44 @@
             let minutes = Math.floor(time / 60);
             let seconds = time % 60;
             
+            let stars = moves <= 25 ? '⭐⭐⭐' : moves <= 50 ? '⭐⭐' : '⭐';
+            
             document.getElementById('finalStats').innerHTML = 
-                `Moves: ${moves}<br>Time: ${minutes}:${seconds < 10 ? '0' : ''}${seconds}<br>Score: ${score}`;
+                `${stars}<br><br>
+                <strong>Moves:</strong> ${moves}<br>
+                <strong>Time:</strong> ${minutes}:${seconds < 10 ? '0' : ''}${seconds}<br>
+                <strong>Score:</strong> ${score}<br><br>
+                Well done! You've mastered the King & Rook checkmate!`;
             
             document.getElementById('winModal').style.display = 'flex';
-            document.getElementById('message').textContent = 'Checkmate! You win!';
+            showMessage('Checkmate! Excellent work! 🎉');
+        }
+
+        // Close win modal
+        function closeWinModal() {
+            document.getElementById('winModal').style.display = 'none';
+            resetGame();
         }
 
         // Get hint
         function getHint() {
             let hints = [
-                "Push the black king to the edge!",
-                "Use your king to control escape squares.",
-                "The rook can cut off the king's escape.",
-                "Work together - king and rook are a team!",
-                "Try to force the king into a corner."
+                "Push the black king to the edge of the board first!",
+                "Use your king to control escape squares - work as a team!",
+                "The rook is most powerful when it cuts off the king's escape.",
+                "Try to force the king to the edge, then to a corner.",
+                "Your king should be opposite the enemy king with one square between.",
+                "Once on the edge, use your rook to deliver checkmate!"
             ];
             
-            document.getElementById('message').textContent = hints[Math.floor(Math.random() * hints.length)];
+            // Give contextual hints
+            if (blackKing.row > 1 && blackKing.row < 6 && 
+                blackKing.col > 1 && blackKing.col < 6) {
+                showMessage("💡 First, push the black king to the edge of the board!");
+            } else {
+                showMessage("💡 " + hints[Math.floor(Math.random() * hints.length)]);
+            }
+            
             score = Math.max(100, score - 50);
             updateStats();
         }
@@ -504,7 +671,7 @@
             timerInterval = setInterval(updateTimer, 1000);
             
             document.getElementById('winModal').style.display = 'none';
-            document.getElementById('message').textContent = 'Click your King or Rook to start!';
+            showMessage('Click your King or Rook to start!');
             
             initBoard();
             renderBoard();
